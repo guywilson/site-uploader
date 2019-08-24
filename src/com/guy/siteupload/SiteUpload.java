@@ -4,7 +4,9 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -53,7 +55,7 @@ public class SiteUpload
 			boolean isSecure = prop.getProperty("targeturl.issecure").equals("yes") ? true : false;
 
 			InputStream is = null;
-			
+
 			System.out.println("Opening www.ipchicken.com");
 
 			try {
@@ -114,80 +116,118 @@ public class SiteUpload
 			}
 			
 			System.out.println("Found IP address : " + ipAddr);
-
-            SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-            String now = df.format(new Date());
 			
 			/*
-			** Read the html template file...
+			** Read last IP address...
 			*/
-			File inputFile = new File(localFile + ".template");
-			FileInputStream fs = new FileInputStream(inputFile);
-			byte[] weatherBuffer = fs.readAllBytes();
+			FileInputStream		ipIS;
+			String 				lastIPAddress = null;
 
-			fs.close();
-
-			/*
-			** Replace tokens in the template file...
-			*/
-			String weatherStr = new String(weatherBuffer);
-
-			weatherStr = weatherStr.replaceAll("<TIME>", now);
-			weatherStr = weatherStr.replaceAll("<SITE>", (isSecure ? "https://" : "http://") + ipAddr + ":" + targetPort + targetBase);
-			
 			try {
-				/*
-				 * FTP the file to the web server... 
-				 */
-				int ftpResponseCode = 0;
-				boolean success = true;
-				
-				System.out.println("FTP Upload");
+				ipIS = new FileInputStream(new File("./address.ip"));
 
-				FTPClient ftp = new FTPClient();
-				
-				ftp.connect(host, port);
-				ftpResponseCode = ftp.getReplyCode();
-				
-				if (!FTPReply.isPositiveCompletion(ftpResponseCode)) {
-					throw new Exception("Failed to connect to host [" + ftpResponseCode + "].");
-				}
-				
-				success = ftp.login(username, password);
-				if (!success) {
-					ftp.disconnect();
-					throw new Exception("Failed to login to host.");
-				}
-				
-				success = ftp.changeWorkingDirectory(wd);
-				if (!success) {
-					ftp.logout();
-					ftp.disconnect();
-					throw new Exception("Failed to change remote directory.");
-				}
-				
-				ftp.enterLocalPassiveMode();
-				
-				ByteArrayInputStream in = new ByteArrayInputStream(weatherStr.getBytes());
-				success = ftp.storeFile(remoteFile, in);
-				if (!success) {
-					ftp.logout();
-					ftp.disconnect();
-					throw new Exception("Failed to upload file.");
-				}
-				in.close();
-				
-				success = ftp.logout();
-				if (!success) {
-					ftp.disconnect();
-					throw new Exception("Failed to logout.");
-				}
-				
-				ftp.disconnect();
+				byte[] bytes = ipIS.readAllBytes();
+	
+				lastIPAddress = new String(bytes);
+
+				ipIS.close();
 			}
-			catch (Exception e) {
-				System.out.println("FTP failed: " + e.getMessage());
-				throw e;
+			catch (FileNotFoundException notFoundEx) {
+				/*
+				** Force a write (create) of the address.ip file...
+				*/
+				lastIPAddress = "";
+			}
+			catch (IOException ioEx) {
+				System.out.println("Failed to write IP address file " + ioEx.getMessage());
+				throw new Exception("Failed to write IP address file " + ioEx.getMessage());
+			}
+			
+			System.out.println("Got last IP address : " + lastIPAddress);
+
+			/*
+			** If the last IP address and current IP address are different,
+			** update the last IP address and upload the template...
+			*/
+			if (!ipAddr.equals(lastIPAddress)) {
+				FileOutputStream ipOS = new FileOutputStream(new File("./address.ip"));
+				ipOS.write(ipAddr.getBytes());
+				ipOS.close();
+			
+				/*
+				** Read the html template file...
+				*/
+				File inputFile = new File(localFile + ".template");
+				FileInputStream fs = new FileInputStream(inputFile);
+				byte[] weatherBuffer = fs.readAllBytes();
+
+				fs.close();
+
+				/*
+				** Replace tokens in the template file...
+				*/
+				String weatherStr = new String(weatherBuffer);
+
+				SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+				String now = df.format(new Date());
+
+				weatherStr = weatherStr.replaceAll("<TIME>", now);
+				weatherStr = weatherStr.replaceAll("<SITE>", (isSecure ? "https://" : "http://") + ipAddr + ":" + targetPort + targetBase);
+				
+				try {
+					/*
+					* FTP the file to the web server... 
+					*/
+					int ftpResponseCode = 0;
+					boolean success = true;
+					
+					System.out.println("FTP Upload");
+
+					FTPClient ftp = new FTPClient();
+					
+					ftp.connect(host, port);
+					ftpResponseCode = ftp.getReplyCode();
+					
+					if (!FTPReply.isPositiveCompletion(ftpResponseCode)) {
+						throw new Exception("Failed to connect to host [" + ftpResponseCode + "].");
+					}
+					
+					success = ftp.login(username, password);
+					if (!success) {
+						ftp.disconnect();
+						throw new Exception("Failed to login to host.");
+					}
+					
+					success = ftp.changeWorkingDirectory(wd);
+					if (!success) {
+						ftp.logout();
+						ftp.disconnect();
+						throw new Exception("Failed to change remote directory.");
+					}
+					
+					ftp.enterLocalPassiveMode();
+					
+					ByteArrayInputStream in = new ByteArrayInputStream(weatherStr.getBytes());
+					success = ftp.storeFile(remoteFile, in);
+					if (!success) {
+						ftp.logout();
+						ftp.disconnect();
+						throw new Exception("Failed to upload file.");
+					}
+					in.close();
+					
+					success = ftp.logout();
+					if (!success) {
+						ftp.disconnect();
+						throw new Exception("Failed to logout.");
+					}
+					
+					ftp.disconnect();
+				}
+				catch (Exception e) {
+					System.out.println("FTP failed: " + e.getMessage());
+					throw e;
+				}
 			}
 		}
 		catch (Exception e) {
