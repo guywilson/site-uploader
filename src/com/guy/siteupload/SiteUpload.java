@@ -24,7 +24,10 @@ public class SiteUpload
 	 */
 	public static void main(String[] args)
 	{
-		System.out.println("Started!");
+		SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+		String now = df.format(new Date());
+
+		System.out.println("Started at " + now);
 			
 		try {
 			Properties prop = new Properties();
@@ -167,9 +170,6 @@ public class SiteUpload
 				** Replace tokens in the template file...
 				*/
 				String weatherStr = new String(weatherBuffer);
-
-				SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-				String now = df.format(new Date());
 
 				System.out.println("Uploading site at " + now);
 
