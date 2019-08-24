@@ -171,6 +171,8 @@ public class SiteUpload
 				SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
 				String now = df.format(new Date());
 
+				System.out.println("Uploading site at " + now);
+
 				weatherStr = weatherStr.replaceAll("<TIME>", now);
 				weatherStr = weatherStr.replaceAll("<SITE>", (isSecure ? "https://" : "http://") + ipAddr + ":" + targetPort + targetBase);
 				
